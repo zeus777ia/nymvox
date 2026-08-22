@@ -1,7 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { json, optionsResponse } from '../_shared/cors.ts'
 
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') return optionsResponse()
   if (req.method !== 'POST') {
@@ -15,16 +14,18 @@ serve(async (req) => {
       return json({ error: 'prompt veya topic gereklidir' }, 400)
     }
 
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY') || Deno.env.get('FREELLM_API_KEY')
+    const base = Deno.env.get('LLM_BASE_URL') || 'https://v1-freedoom.com/v1'
+
     if (openaiApiKey) {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch(`${base.replace(/\/$/, '')}/chat/completions`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${openaiApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: Deno.env.get('LLM_MODEL') || 'auto',
           messages: [
             {
               role: 'system',
@@ -39,13 +40,15 @@ serve(async (req) => {
       if (response.ok) {
         const data = await response.json()
         const content = data.choices?.[0]?.message?.content ?? ''
-        return json({
-          content,
-          hashtags: [`#${input.replace(/\s+/g, '')}`, `#${platform}`, '#nymvox'],
-          platform,
-          tone,
-          aiGenerated: true,
-        })
+        if (content) {
+          return json({
+            content,
+            hashtags: [`#${input.replace(/\s+/g, '')}`, `#${platform}`, '#nymvox'],
+            platform,
+            tone,
+            aiGenerated: true,
+          })
+        }
       }
     }
 

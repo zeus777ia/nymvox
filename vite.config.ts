@@ -8,6 +8,18 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    proxy: {
+      "/llm": {
+        target: "https://v1-freedoom.com",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/llm/, "/v1"),
+      },
+      "/x-api": {
+        target: "https://api.x.com",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/x-api/, ""),
+      },
+    },
   },
   preview: {
     port: 3000,

@@ -19,6 +19,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/x-api/, ""),
       },
+      "/fb-graph": {
+        target: "https://graph.facebook.com",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/fb-graph/, ""),
+      },
     },
   },
   preview: {

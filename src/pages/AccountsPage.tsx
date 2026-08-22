@@ -12,7 +12,8 @@ import { Trash2, Plus, Link2, Loader2 } from 'lucide-react'
 import { CardSkeleton } from '@/components/shared/Skeletons'
 import { PLATFORMS, platformName } from '@/lib/platforms'
 import { Link, useSearchParams } from 'react-router-dom'
-import { exchangeXCode, fetchXMe, startXLogin, takeXVerifier, xClientId } from '@/lib/x-oauth'
+import { exchangeXCode, fetchXMe, startXLogin, takeXVerifier } from '@/lib/x-oauth'
+import { fetchFacebookPages } from '@/lib/meta'
 
 export function AccountsPage() {
   const { user } = useAuth()
@@ -26,10 +27,10 @@ export function AccountsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [accessToken, setAccessToken] = useState('')
   const [refreshToken, setRefreshToken] = useState('')
+  const [fbToken, setFbToken] = useState('')
 
   const canAdd = limits.accounts === Infinity || accounts.length < limits.accounts
   const availablePlatforms = limits.platforms
-  const hasXApp = Boolean(xClientId())
 
   const saveXProfile = async (access: string, refresh?: string, expiresIn?: number) => {
     const me = await fetchXMe(access)
@@ -122,6 +123,32 @@ export function AccountsPage() {
     }
   }
 
+  const handleFacebookToken = async () => {
+    if (!fbToken.trim()) {
+      addToast('Facebook Page token yapıştır', 'error')
+      return
+    }
+    setOauthBusy(true)
+    try {
+      const pages = await fetchFacebookPages(fbToken.trim())
+      for (const page of pages) {
+        await upsertOAuthAccount({
+          platform: 'facebook',
+          account_name: page.name,
+          account_handle: page.id,
+          oauth_user_id: page.id,
+          access_token: page.access_token,
+        })
+      }
+      addToast(`${pages.length} Facebook Page bağlandı`, 'success')
+      setFbToken('')
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'Facebook bağlanamadı', 'error')
+    } finally {
+      setOauthBusy(false)
+    }
+  }
+
   if (loading) return <CardSkeleton count={3} />
 
   return (
@@ -162,34 +189,53 @@ export function AccountsPage() {
 
       {oauthBusy && (
         <div className="flex items-center gap-2 text-sm text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg p-3 mb-4">
-          <Loader2 className="w-4 h-4 animate-spin" /> X hesabı bağlanıyor…
+          <Loader2 className="w-4 h-4 animate-spin" /> Hesap bağlanıyor…
         </div>
       )}
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
         <Card>
           <CardContent className="pt-5 space-y-3">
+            <p className="font-semibold">Facebook Page</p>
+            <p className="text-xs text-gray-500">Metin post basılır. Kişisel profil değil, Page token gerekir.</p>
+            <Input
+              placeholder="Page Access Token"
+              value={fbToken}
+              onChange={(e) => setFbToken(e.target.value)}
+            />
+            <Button onClick={handleFacebookToken} disabled={!canAdd || oauthBusy || !fbToken} className="w-full">
+              Facebook bağla
+            </Button>
+            <p className="text-xs text-gray-500">
+              Token:{' '}
+              <a
+                className="underline"
+                href="https://developers.facebook.com/tools/explorer/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Graph API Explorer
+              </a>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5 space-y-3">
             <p className="font-semibold">Twitter / X</p>
-            <p className="text-xs text-gray-500">Gerçek OAuth — izin verince hesabın bağlanır.</p>
-            <Button onClick={handleX} disabled={!canAdd || oauthBusy} className="w-full">
+            <p className="text-xs text-gray-500">API kredi ister (pay-per-use). İstersen token ile dene.</p>
+            <Button onClick={handleX} disabled={!canAdd || oauthBusy} variant="outline" className="w-full">
               X ile bağla
             </Button>
-            {!hasXApp && (
-              <p className="text-xs text-amber-800 bg-amber-50 rounded p-2">
-                `.env.local` içine <code>VITE_X_CLIENT_ID</code> yaz.
-              </p>
-            )}
             <details className="text-xs text-gray-600">
               <summary className="cursor-pointer font-medium">X panel tokeni ile bağla</summary>
               <div className="mt-2 space-y-2">
-                <p>developer.x.com → Keys and tokens → OAuth 2.0 Access Token</p>
                 <Input
                   placeholder="Access Token"
                   value={accessToken}
                   onChange={(e) => setAccessToken(e.target.value)}
                 />
                 <Input
-                  placeholder="Refresh Token (opsiyonel)"
+                  placeholder="Refresh Token"
                   value={refreshToken}
                   onChange={(e) => setRefreshToken(e.target.value)}
                 />
@@ -200,17 +246,37 @@ export function AccountsPage() {
             </details>
           </CardContent>
         </Card>
-        {['instagram', 'linkedin', 'tiktok', 'facebook'].map((id) => (
-          <Card key={id} className="opacity-80">
-            <CardContent className="pt-5 space-y-3">
-              <p className="font-semibold">{platformName(id)}</p>
-              <p className="text-xs text-gray-500">Developer app + App Review gerekir. Şimdilik manuel ekle.</p>
-              <Button variant="outline" className="w-full" disabled>
-                Yakında
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+        <Card className="opacity-90">
+          <CardContent className="pt-5 space-y-3">
+            <p className="font-semibold">Instagram</p>
+            <p className="text-xs text-gray-500">
+              Metin post yok. Business/Creator + Facebook Page + her postta görsel/Reels. App Review şart.
+            </p>
+            <Button variant="outline" className="w-full" disabled>
+              Görsel akışı sonra
+            </Button>
+          </CardContent>
+        </Card>
+        <Card className="opacity-90">
+          <CardContent className="pt-5 space-y-3">
+            <p className="font-semibold">TikTok</p>
+            <p className="text-xs text-gray-500">
+              Sadece video. Content Posting API + TikTok uygulama incelemesi. Metin basılmaz.
+            </p>
+            <Button variant="outline" className="w-full" disabled>
+              Video akışı sonra
+            </Button>
+          </CardContent>
+        </Card>
+        <Card className="opacity-80">
+          <CardContent className="pt-5 space-y-3">
+            <p className="font-semibold">LinkedIn</p>
+            <p className="text-xs text-gray-500">LinkedIn app + Company Page token. İstersen sonraki adım.</p>
+            <Button variant="outline" className="w-full" disabled>
+              Yakında
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {!canAdd && (

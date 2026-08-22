@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/useToast'
-import { publishWithAccount } from '@/lib/x-publish'
+import { publishWithAccount } from '@/lib/publish'
 
 export function usePublisher() {
   const { user } = useAuth()
@@ -30,7 +30,7 @@ export function usePublisher() {
             if (!post.account_id) throw new Error('Hesap yok')
             const { data: account, error: accErr } = await supabase
               .from('social_accounts')
-              .select('id, platform, access_token, refresh_token')
+              .select('id, platform, access_token, refresh_token, oauth_user_id')
               .eq('id', post.account_id)
               .single()
             if (accErr || !account) throw new Error('Hesap bulunamadı')
@@ -39,7 +39,7 @@ export function usePublisher() {
               .from('posts')
               .update({ status: 'published', published_at: new Date().toISOString() })
               .eq('id', post.id)
-            addToast('Zamanlanan post X’te paylaşıldı', 'success')
+            addToast(`Zamanlanan post ${account.platform} üzerinde paylaşıldı`, 'success')
           } catch (e) {
             await supabase.from('posts').update({ status: 'failed' }).eq('id', post.id)
             addToast(e instanceof Error ? `Paylaşım başarısız: ${e.message}` : 'Paylaşım başarısız', 'error')

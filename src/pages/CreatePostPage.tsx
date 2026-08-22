@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Sparkles, Send, Wand2, Loader2, CalendarClock } from 'lucide-react'
 import { platformLimit, platformName } from '@/lib/platforms'
 import { Link } from 'react-router-dom'
-import { publishWithAccount } from '@/lib/x-publish'
+import { publishWithAccount } from '@/lib/publish'
 
 export function CreatePostPage() {
   const { user } = useAuth()

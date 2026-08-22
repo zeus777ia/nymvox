@@ -1,11 +1,7 @@
--- Nymvox / SocialFlow — initial schema
+-- Nymvox — initial schema (idempotent)
 -- Run in Supabase SQL Editor or: supabase db push
 
 create extension if not exists "pgcrypto";
-
--- ---------------------------------------------------------------------------
--- Tables
--- ---------------------------------------------------------------------------
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -54,14 +50,41 @@ create table if not exists public.subscriptions (
   created_at timestamptz not null default now()
 );
 
+-- Existing DBs created from an older draft may miss columns
+alter table public.profiles add column if not exists full_name text;
+alter table public.profiles add column if not exists avatar_url text;
+alter table public.profiles add column if not exists company_name text;
+alter table public.profiles add column if not exists role text default 'user';
+alter table public.profiles add column if not exists plan text default 'free';
+alter table public.profiles add column if not exists created_at timestamptz default now();
+alter table public.profiles add column if not exists updated_at timestamptz default now();
+
+alter table public.social_accounts add column if not exists account_handle text default '';
+alter table public.social_accounts add column if not exists profile_image_url text default '';
+alter table public.social_accounts add column if not exists followers_count integer default 0;
+alter table public.social_accounts add column if not exists is_active boolean default true;
+alter table public.social_accounts add column if not exists created_at timestamptz default now();
+
+alter table public.posts add column if not exists account_id uuid;
+alter table public.posts add column if not exists content text;
+alter table public.posts add column if not exists status text default 'draft';
+alter table public.posts add column if not exists scheduled_at timestamptz;
+alter table public.posts add column if not exists published_at timestamptz;
+alter table public.posts add column if not exists ai_generated boolean default false;
+alter table public.posts add column if not exists created_at timestamptz default now();
+alter table public.posts add column if not exists updated_at timestamptz default now();
+
+alter table public.subscriptions add column if not exists plan text default 'free';
+alter table public.subscriptions add column if not exists status text default 'active';
+alter table public.subscriptions add column if not exists stripe_customer_id text;
+alter table public.subscriptions add column if not exists stripe_subscription_id text;
+alter table public.subscriptions add column if not exists current_period_end timestamptz;
+alter table public.subscriptions add column if not exists created_at timestamptz default now();
+
 create index if not exists social_accounts_user_id_idx on public.social_accounts (user_id);
 create index if not exists posts_user_id_idx on public.posts (user_id);
 create index if not exists posts_scheduled_at_idx on public.posts (scheduled_at);
 create index if not exists posts_status_idx on public.posts (status);
-
--- ---------------------------------------------------------------------------
--- updated_at helper
--- ---------------------------------------------------------------------------
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -82,10 +105,6 @@ drop trigger if exists posts_set_updated_at on public.posts;
 create trigger posts_set_updated_at
   before update on public.posts
   for each row execute function public.set_updated_at();
-
--- ---------------------------------------------------------------------------
--- Auto-create profile + free subscription on signup
--- ---------------------------------------------------------------------------
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -114,10 +133,6 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
-
--- ---------------------------------------------------------------------------
--- Row Level Security
--- ---------------------------------------------------------------------------
 
 alter table public.profiles enable row level security;
 alter table public.social_accounts enable row level security;

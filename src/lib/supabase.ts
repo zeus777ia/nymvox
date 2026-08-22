@@ -9,22 +9,30 @@ export const isSupabaseConfigured = Boolean(
     supabaseAnonKey.length > 20,
 )
 
-// createClient empty url/key ile throw eder → tüm uygulama beyaz sayfa olur.
 const FALLBACK_URL = 'https://zzzzzzzzzzzzzzzzzzzz.supabase.co'
 const FALLBACK_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp6enp6enp6enp6enp6enp6enp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjAsImV4cCI6MH0.invalid'
 
-export const supabase: SupabaseClient = createClient(
-  isSupabaseConfigured ? supabaseUrl : FALLBACK_URL,
-  isSupabaseConfigured ? supabaseAnonKey : FALLBACK_KEY,
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-  },
-)
+function makeClient(): SupabaseClient {
+  try {
+    return createClient(
+      isSupabaseConfigured ? supabaseUrl : FALLBACK_URL,
+      isSupabaseConfigured ? supabaseAnonKey : FALLBACK_KEY,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      },
+    )
+  } catch (err) {
+    console.error('Supabase client oluşturulamadı', err)
+    return createClient(FALLBACK_URL, FALLBACK_KEY)
+  }
+}
+
+export const supabase: SupabaseClient = makeClient()
 
 export type Profile = {
   id: string

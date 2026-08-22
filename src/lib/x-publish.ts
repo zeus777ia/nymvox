@@ -5,6 +5,16 @@ function xApi(path: string) {
   return import.meta.env.DEV ? `/x-api${path}` : `https://api.x.com${path}`
 }
 
+function xError(status: number, data: Record<string, unknown>) {
+  const raw = String(data.detail || data.title || data.error || '')
+  if (status === 402 || /credit/i.test(raw)) {
+    return 'X API kredi yok. developer.x.com → Billing’den pay-per-use kredi yükle. Ücretsiz planda tweet basılmaz.'
+  }
+  if (status === 401) return 'X token süresi doldu. Hesaplar → tokeni yenile.'
+  if (status === 403) return 'X izin vermedi (403). App permissions Read and write + Project + kredi kontrol et.'
+  return `X_${status}: ${raw || 'paylaşım hatası'}`
+}
+
 export async function refreshXToken(refreshToken: string) {
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
@@ -38,10 +48,7 @@ export async function postToX(accessToken: string, text: string) {
     body: JSON.stringify({ text: trimmed }),
   })
   const data = await res.json()
-  if (!res.ok) {
-    const msg = data.detail || data.title || data.error || 'X paylaşım hatası'
-    throw new Error(`X_${res.status}: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`)
-  }
+  if (!res.ok) throw new Error(xError(res.status, data))
   return data as { data?: { id: string } }
 }
 
@@ -64,7 +71,7 @@ export async function publishWithAccount(
     return await postToX(token, content)
   } catch (err) {
     const msg = err instanceof Error ? err.message : ''
-    if (!account.refresh_token || !msg.includes('X_401')) throw err
+    if (!account.refresh_token || !msg.includes('token süresi')) throw err
     const refreshed = await refreshXToken(account.refresh_token)
     token = refreshed.access_token
     await supabase

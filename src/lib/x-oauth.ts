@@ -6,6 +6,10 @@ export function xClientId() {
   return (import.meta.env.VITE_X_CLIENT_ID as string | undefined)?.trim() || ''
 }
 
+export function xClientSecret() {
+  return (import.meta.env.VITE_X_CLIENT_SECRET as string | undefined)?.trim() || ''
+}
+
 export function xRedirectUri() {
   return `${window.location.origin}/accounts`
 }
@@ -47,9 +51,19 @@ export async function exchangeXCode(code: string, verifier: string) {
     client_id: xClientId(),
     code_verifier: verifier,
   })
+  const secret = xClientSecret()
+  if (secret) body.set('client_secret', secret)
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+  }
+  if (secret) {
+    headers.Authorization = `Basic ${btoa(`${xClientId()}:${secret}`)}`
+  }
+
   const res = await fetch(xApi('/2/oauth2/token'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers,
     body,
   })
   const data = await res.json()

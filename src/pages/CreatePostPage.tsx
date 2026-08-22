@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Sparkles, Send, Wand2, Loader2, CalendarClock } from 'lucide-react'
 import { platformLimit, platformName } from '@/lib/platforms'
 import { Link } from 'react-router-dom'
+import { publishWithAccount } from '@/lib/x-publish'
 
 export function CreatePostPage() {
   const { user } = useAuth()
@@ -51,6 +52,13 @@ export function CreatePostPage() {
     }
   }
 
+  const resetForm = () => {
+    setContent('')
+    setAiPrompt('')
+    setScheduledAt('')
+    setUsedAI(false)
+  }
+
   const save = async (mode: 'draft' | 'scheduled') => {
     if (!canSave) {
       addToast('İçerik ve hesap gerekli', 'error')
@@ -67,13 +75,32 @@ export function CreatePostPage() {
         scheduledAt: mode === 'scheduled' ? new Date(scheduledAt).toISOString() : null,
         status: mode === 'scheduled' ? 'scheduled' : 'draft',
       })
-      setContent('')
-      setAiPrompt('')
-      setScheduledAt('')
-      setUsedAI(false)
-      addToast(mode === 'scheduled' ? 'Post zamanlandı!' : 'Taslak kaydedildi!', 'success')
+      resetForm()
+      addToast(mode === 'scheduled' ? 'Post zamanlandı. Dashboard açık kalsın.' : 'Taslak kaydedildi!', 'success')
     } catch {
-      addToast('Post kaydedilirken hata oluştu. Supabase şemasını çalıştırdın mı?', 'error')
+      addToast('Post kaydedilirken hata oluştu.', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const publishNow = async () => {
+    if (!canSave || !account) {
+      addToast('İçerik ve hesap gerekli', 'error')
+      return
+    }
+    setSaving(true)
+    try {
+      await publishWithAccount(account, content)
+      await createPost(content, selectedAccount, {
+        aiGenerated: usedAI,
+        scheduledAt: null,
+        status: 'published',
+      })
+      resetForm()
+      addToast('X’te paylaşıldı', 'success')
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'Paylaşılamadı', 'error')
     } finally {
       setSaving(false)
     }
@@ -125,6 +152,7 @@ export function CreatePostPage() {
                   {accounts.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       {a.account_name} ({platformName(a.platform)})
+                      {a.oauth_user_id ? '' : ' — token yok'}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -154,12 +182,16 @@ export function CreatePostPage() {
                 onChange={(e) => setScheduledAt(e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Button onClick={() => save('draft')} disabled={!canSave || saving} variant="outline" className="gap-2">
-                <Send className="w-4 h-4" /> Taslak
+                Taslak
               </Button>
               <Button onClick={() => save('scheduled')} disabled={!canSave || saving || !scheduledAt} className="gap-2">
-                <CalendarClock className="w-4 h-4" /> Zamanla
+                Zamanla
+              </Button>
+              <Button onClick={publishNow} disabled={!canSave || saving} className="gap-2">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Şimdi paylaş
               </Button>
             </div>
           </CardContent>

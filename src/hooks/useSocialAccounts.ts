@@ -10,6 +10,8 @@ export type SocialAccount = {
   followers_count: number
   is_active: boolean
   oauth_user_id?: string | null
+  access_token?: string | null
+  refresh_token?: string | null
 }
 
 export function useSocialAccounts(userId: string | undefined) {

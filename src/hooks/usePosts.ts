@@ -51,6 +51,7 @@ export function usePosts(userId: string | undefined) {
         account_id: accountId,
         ai_generated: options.aiGenerated ?? false,
         scheduled_at: options.scheduledAt ?? null,
+        published_at: status === 'published' ? new Date().toISOString() : null,
         status,
       })
       .select()

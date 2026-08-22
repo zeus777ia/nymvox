@@ -1,0 +1,53 @@
+export const plans = [
+  {
+    id: 'free',
+    name: 'Free',
+    price: 0,
+    priceLabel: '$0',
+    period: '/ay',
+    description: 'Başlangıç için ideal',
+    features: ['2 Sosyal Hesap', '1 Platform (Twitter/X)', '10 Post/ay', 'Temel Analitik', '1 Kullanıcı'],
+    cta: 'Ücretsiz Başla',
+    popular: false,
+  },
+  {
+    id: 'starter',
+    name: 'Starter',
+    price: 9,
+    priceLabel: '$9',
+    period: '/ay',
+    description: 'Küçük ekipler için',
+    features: ['5 Sosyal Hesap', '3 Platform', '100 Post/ay', 'Temel AI', '2 Kullanıcı', 'E-posta Destek'],
+    cta: 'Başla',
+    popular: false,
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: 29,
+    priceLabel: '$29',
+    period: '/ay',
+    description: 'Büyüyen işletmeler için',
+    features: ['15 Sosyal Hesap', '5 Platform', 'Sınırsız Post', 'Tam AI + Hashtag', '5 Kullanıcı', 'Öncelikli Destek', 'API Erişimi'],
+    cta: 'Pro\'ya Geç',
+    popular: true,
+  },
+  {
+    id: 'business',
+    name: 'Business',
+    price: 79,
+    priceLabel: '$79',
+    period: '/ay',
+    description: 'Ajanslar ve kurumlar için',
+    features: ['Sınırsız Hesap', 'Tüm Platformlar', 'Sınırsız Post', 'MCP Agent\'ları', '20 Kullanıcı', 'Slack Destek', 'Beyaz Etiket'],
+    cta: 'İletişime Geç',
+    popular: false,
+  },
+]
+
+export const planLimits: Record<string, { accounts: number; platforms: string[]; postsPerMonth: number }> = {
+  free: { accounts: 2, platforms: ['twitter'], postsPerMonth: 10 },
+  starter: { accounts: 5, platforms: ['twitter', 'instagram', 'linkedin'], postsPerMonth: 100 },
+  pro: { accounts: 15, platforms: ['twitter', 'instagram', 'linkedin', 'tiktok', 'facebook'], postsPerMonth: Infinity },
+  business: { accounts: Infinity, platforms: ['twitter', 'instagram', 'linkedin', 'tiktok', 'facebook', 'youtube', 'pinterest'], postsPerMonth: Infinity },
+}

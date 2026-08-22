@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+Disallow: /dashboard
+Disallow: /accounts
+Disallow: /calendar
+Disallow: /create
+Disallow: /analytics
+Disallow: /settings
+Disallow: /billing

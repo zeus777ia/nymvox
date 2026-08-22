@@ -24,10 +24,28 @@ export function AccountsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [oauthBusy, setOauthBusy] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
+  const [accessToken, setAccessToken] = useState('')
+  const [refreshToken, setRefreshToken] = useState('')
 
   const canAdd = limits.accounts === Infinity || accounts.length < limits.accounts
   const availablePlatforms = limits.platforms
   const hasXApp = Boolean(xClientId())
+
+  const saveXProfile = async (access: string, refresh?: string, expiresIn?: number) => {
+    const me = await fetchXMe(access)
+    await upsertOAuthAccount({
+      platform: 'twitter',
+      account_name: me.name,
+      account_handle: `@${me.username}`,
+      profile_image_url: me.profile_image_url,
+      followers_count: me.public_metrics?.followers_count,
+      oauth_user_id: me.id,
+      access_token: access,
+      refresh_token: refresh,
+      token_expires_at: expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : undefined,
+    })
+    addToast(`@${me.username} bağlandı`, 'success')
+  }
 
   useEffect(() => {
     const code = searchParams.get('code')
@@ -45,21 +63,7 @@ export function AccountsPage() {
         const verifier = takeXVerifier()
         if (!verifier) throw new Error('Oturum PKCE kodu kayıp. Tekrar “X ile bağla”ya bas.')
         const tokens = await exchangeXCode(code, verifier)
-        const me = await fetchXMe(tokens.access_token)
-        await upsertOAuthAccount({
-          platform: 'twitter',
-          account_name: me.name,
-          account_handle: `@${me.username}`,
-          profile_image_url: me.profile_image_url,
-          followers_count: me.public_metrics?.followers_count,
-          oauth_user_id: me.id,
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          token_expires_at: tokens.expires_in
-            ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
-            : undefined,
-        })
-        addToast(`@${me.username} bağlandı`, 'success')
+        await saveXProfile(tokens.access_token, tokens.refresh_token, tokens.expires_in)
       } catch (e) {
         addToast(e instanceof Error ? e.message : 'X bağlanamadı', 'error')
       } finally {
@@ -98,6 +102,23 @@ export function AccountsPage() {
       await startXLogin()
     } catch (e) {
       addToast(e instanceof Error ? e.message : 'X başlatılamadı', 'error')
+    }
+  }
+
+  const handlePasteTokens = async () => {
+    if (!accessToken.trim()) {
+      addToast('Access Token yapıştır', 'error')
+      return
+    }
+    setOauthBusy(true)
+    try {
+      await saveXProfile(accessToken.trim(), refreshToken.trim() || undefined, 7200)
+      setAccessToken('')
+      setRefreshToken('')
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'Token geçersiz', 'error')
+    } finally {
+      setOauthBusy(false)
     }
   }
 
@@ -155,13 +176,28 @@ export function AccountsPage() {
             </Button>
             {!hasXApp && (
               <p className="text-xs text-amber-800 bg-amber-50 rounded p-2">
-                `.env.local` içine <code>VITE_X_CLIENT_ID</code> yaz. Uygulama:{' '}
-                <a className="underline" href="https://developer.x.com/en/portal/dashboard" target="_blank" rel="noreferrer">
-                  developer.x.com
-                </a>
-                . Callback: <code>{typeof window !== 'undefined' ? `${window.location.origin}/accounts` : ''}</code>
+                `.env.local` içine <code>VITE_X_CLIENT_ID</code> yaz.
               </p>
             )}
+            <details className="text-xs text-gray-600">
+              <summary className="cursor-pointer font-medium">X panel tokeni ile bağla</summary>
+              <div className="mt-2 space-y-2">
+                <p>developer.x.com → Keys and tokens → OAuth 2.0 Access Token</p>
+                <Input
+                  placeholder="Access Token"
+                  value={accessToken}
+                  onChange={(e) => setAccessToken(e.target.value)}
+                />
+                <Input
+                  placeholder="Refresh Token (opsiyonel)"
+                  value={refreshToken}
+                  onChange={(e) => setRefreshToken(e.target.value)}
+                />
+                <Button size="sm" onClick={handlePasteTokens} disabled={oauthBusy || !accessToken} className="w-full">
+                  Token ile bağla
+                </Button>
+              </div>
+            </details>
           </CardContent>
         </Card>
         {['instagram', 'linkedin', 'tiktok', 'facebook'].map((id) => (
@@ -169,12 +205,7 @@ export function AccountsPage() {
             <CardContent className="pt-5 space-y-3">
               <p className="font-semibold">{platformName(id)}</p>
               <p className="text-xs text-gray-500">Developer app + App Review gerekir. Şimdilik manuel ekle.</p>
-              <Button
-                variant="outline"
-                className="w-full"
-                disabled
-                title="Platform developer onayı şart"
-              >
+              <Button variant="outline" className="w-full" disabled>
                 Yakında
               </Button>
             </CardContent>
@@ -197,11 +228,7 @@ export function AccountsPage() {
             <CardContent className="pt-6 flex items-center justify-between">
               <div className="flex items-center gap-3 min-w-0">
                 {account.profile_image_url ? (
-                  <img
-                    src={account.profile_image_url}
-                    alt=""
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
+                  <img src={account.profile_image_url} alt="" className="w-10 h-10 rounded-full object-cover" />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-sm font-bold text-indigo-700 shrink-0">
                     {account.platform.slice(0, 2).toUpperCase()}
@@ -227,7 +254,7 @@ export function AccountsPage() {
         <div className="text-center py-16 bg-gray-50 rounded-lg border border-dashed">
           <Link2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-600 mb-2">Henüz bağlı hesabın yok.</p>
-          <p className="text-sm text-gray-500">X ile bağla veya manuel ekle.</p>
+          <p className="text-sm text-gray-500">X ile bağla veya token yapıştır.</p>
         </div>
       )}
     </div>
